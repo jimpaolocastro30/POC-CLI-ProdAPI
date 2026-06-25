@@ -1,0 +1,17 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: inventory-api-backend-config
+  namespace: inventory
+spec:
+  healthCheck:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /up
+    port: 8080
+  # Attach Cloud Armor policy after creation:
+  # securityPolicy:
+  #   name: inventory-armor-policy

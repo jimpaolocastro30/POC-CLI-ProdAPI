@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: inventory-migrate
+  namespace: inventory
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: inventory-api
+      containers:
+        - name: migrate
+          image: inventory-api:latest
+          command:
+            - php
+            - artisan
+            - migrate
+            - --force
+          envFrom:
+            - configMapRef:
+                name: inventory-api-config
+            - secretRef:
+                name: inventory-api-secrets
+      # Optional: Cloud SQL connector
+      # metadata:
+      #   annotations:
+      #     cloud.google.com/cloud-sql-instances: PROJECT:REGION:inventory-db-production

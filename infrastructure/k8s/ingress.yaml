@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory-api-ingress
+  namespace: inventory
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "inventory-api-ip"
+    networking.gke.io/managed-certificates: "inventory-api-cert"
+    cloud.google.com/backend-config: '{"default": "inventory-api-backend-config"}'
+spec:
+  rules:
+    - host: api.inventory.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-api
+                port:
+                  number: 80

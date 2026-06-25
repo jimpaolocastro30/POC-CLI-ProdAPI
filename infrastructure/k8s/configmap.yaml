@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-api-config
+  namespace: inventory
+data:
+  APP_NAME: "Inventory Management API"
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "https://api.inventory.example.com"
+  LOG_CHANNEL: "stderr"
+  LOG_LEVEL: "info"
+  DB_CONNECTION: "pgsql"
+  DB_HOST: "10.x.x.x"          # Cloud SQL private IP — update after Terraform
+  DB_PORT: "5432"
+  DB_DATABASE: "inventory"
+  DB_USERNAME: "inventory"
+  SESSION_DRIVER: "redis"
+  CACHE_STORE: "redis"
+  QUEUE_CONNECTION: "redis"
+  REDIS_HOST: "10.x.x.x"       # Memorystore host — update after Terraform
+  REDIS_PORT: "6379"
+  MAIL_MAILER: "smtp"
+  GCP_PROJECT_ID: "YOUR_PROJECT_ID"
+  GCP_STORAGE_BUCKET: "YOUR_PROJECT_ID-inventory-documents"
+  GCP_PUBSUB_TOPIC: "inventory-events"

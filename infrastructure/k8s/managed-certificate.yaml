@@ -1,0 +1,8 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: inventory-api-cert
+  namespace: inventory
+spec:
+  domains:
+    - api.inventory.example.com
