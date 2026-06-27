@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-api-config
+  namespace: inventory-staging
+data:
+  APP_NAME: "Inventory Management API (Staging)"
+  APP_ENV: "staging"
+  APP_DEBUG: "false"
+  APP_URL: "http://STAGING_LOAD_BALANCER_IP"
+  LOG_CHANNEL: "stderr"
+  LOG_LEVEL: "info"
+  DB_CONNECTION: "pgsql"
+  DB_HOST: "CLOUD_SQL_PRIVATE_IP"
+  DB_PORT: "5432"
+  DB_DATABASE: "inventory"
+  DB_USERNAME: "inventory"
+  SESSION_DRIVER: "redis"
+  CACHE_STORE: "redis"
+  CACHE_PREFIX: "inventory_staging_"
+  QUEUE_CONNECTION: "redis"
+  REDIS_HOST: "MEMORYSTORE_HOST"
+  REDIS_PORT: "6379"
+  MAIL_MAILER: "log"
+  GCP_PROJECT_ID: "YOUR_PROJECT_ID"
+  GCP_STORAGE_BUCKET: "YOUR_PROJECT_ID-inventory-documents-staging"
+  GCP_PUBSUB_TOPIC: "inventory-events-staging"

@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: inventory-migrate
+  namespace: inventory-staging
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: inventory-api
+      containers:
+        - name: migrate
+          image: inventory-api:latest
+          command: ["php", "artisan", "migrate", "--seed", "--force"]
+          envFrom:
+            - configMapRef:
+                name: inventory-api-config
+            - secretRef:
+                name: inventory-api-secrets

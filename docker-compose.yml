@@ -2,12 +2,15 @@ services:
   app:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.dev
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_URL: http://localhost:8080
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
@@ -19,17 +22,25 @@ services:
       QUEUE_CONNECTION: redis
       CACHE_STORE: redis
       SESSION_DRIVER: redis
+      MAIL_MAILER: log
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
     volumes:
-      - ./storage/logs:/var/www/html/storage/logs
+      - ./storage:/var/www/html/storage
       - ./app:/var/www/html/app
       - ./database:/var/www/html/database
       - ./routes:/var/www/html/routes
       - ./config:/var/www/html/config
+      - ./.env:/var/www/html/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
 
   postgres:
     image: postgres:16-alpine

@@ -1,0 +1,21 @@
+# Minimal STAGING — copy to staging.tfvars and set project_id
+# Estimated cost: ~$150–300/month (us-central1)
+
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+environment = "staging"
+
+# Small dedicated instance, still zonal for cost
+db_tier                = "db-g1-small"
+db_availability_type   = "ZONAL"
+db_disk_size_gb        = 20
+db_max_connections     = 100
+
+redis_memory_gb = 1
+redis_tier      = "BASIC"
+
+enable_pitr              = true
+backup_retained_count    = 14
+enable_monitoring_alerts = true
+enable_storage_lifecycle = false
+create_artifact_registry = false

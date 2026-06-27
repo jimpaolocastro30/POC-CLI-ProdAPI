@@ -27,23 +27,23 @@ resource "google_service_networking_connection" "private_vpc" {
 }
 
 resource "google_service_account" "inventory_api" {
-  account_id   = "inventory-api"
-  display_name = "Inventory API Service Account"
+  account_id   = "inventory-api-${var.environment}"
+  display_name = "Inventory API Service Account (${var.environment})"
 }
 
 resource "google_service_account" "inventory_db" {
-  account_id   = "inventory-db"
-  display_name = "Inventory DB Service Account"
+  account_id   = "inventory-db-${var.environment}"
+  display_name = "Inventory DB Service Account (${var.environment})"
 }
 
 resource "google_service_account" "inventory_monitoring" {
-  account_id   = "inventory-monitoring"
-  display_name = "Inventory Monitoring Service Account"
+  account_id   = "inventory-monitoring-${var.environment}"
+  display_name = "Inventory Monitoring Service Account (${var.environment})"
 }
 
 resource "google_service_account" "inventory_backup" {
-  account_id   = "inventory-backup"
-  display_name = "Inventory Backup Service Account"
+  account_id   = "inventory-backup-${var.environment}"
+  display_name = "Inventory Backup Service Account (${var.environment})"
 }
 
 resource "google_sql_database_instance" "inventory" {
@@ -53,17 +53,17 @@ resource "google_sql_database_instance" "inventory" {
 
   settings {
     tier              = var.db_tier
-    availability_type = "REGIONAL"
+    availability_type = var.db_availability_type
     disk_autoresize   = true
-    disk_size         = 100
+    disk_size         = var.db_disk_size_gb
 
     backup_configuration {
       enabled                        = true
-      point_in_time_recovery_enabled = true
+      point_in_time_recovery_enabled = var.enable_pitr
       start_time                     = "03:00"
-      transaction_log_retention_days = 7
+      transaction_log_retention_days = var.enable_pitr ? 7 : 1
       backup_retention_settings {
-        retained_backups = 30
+        retained_backups = var.backup_retained_count
       }
     }
 
@@ -74,7 +74,7 @@ resource "google_sql_database_instance" "inventory" {
 
     database_flags {
       name  = "max_connections"
-      value = "200"
+      value = tostring(var.db_max_connections)
     }
   }
 
@@ -98,7 +98,7 @@ resource "random_password" "db_password" {
 }
 
 resource "google_secret_manager_secret" "db_password" {
-  secret_id = "inventory-db-password"
+  secret_id = "inventory-db-password-${var.environment}"
   replication {
     auto {}
   }
@@ -111,7 +111,7 @@ resource "google_secret_manager_secret_version" "db_password" {
 
 resource "google_redis_instance" "inventory" {
   name               = "inventory-redis-${var.environment}"
-  tier               = "STANDARD_HA"
+  tier               = var.redis_tier
   memory_size_gb     = var.redis_memory_gb
   region             = var.region
   authorized_network = google_compute_network.vpc.id
@@ -119,43 +119,55 @@ resource "google_redis_instance" "inventory" {
 }
 
 resource "google_storage_bucket" "documents" {
-  name                        = "${var.project_id}-inventory-documents"
+  name                        = "${var.project_id}-inventory-documents-${var.environment}"
   location                    = var.region
   uniform_bucket_level_access = true
   versioning {
     enabled = true
   }
-  lifecycle_rule {
-    action {
-      type          = "SetStorageClass"
-      storage_class = "NEARLINE"
-    }
-    condition {
-      age = 30
-    }
-  }
-  lifecycle_rule {
-    action {
-      type          = "SetStorageClass"
-      storage_class = "COLDLINE"
-    }
-    condition {
-      age = 90
+
+  dynamic "lifecycle_rule" {
+    for_each = var.enable_storage_lifecycle ? [1] : []
+    content {
+      action {
+        type          = "SetStorageClass"
+        storage_class = "NEARLINE"
+      }
+      condition {
+        age = 30
+      }
     }
   }
-  lifecycle_rule {
-    action {
-      type          = "SetStorageClass"
-      storage_class = "ARCHIVE"
+
+  dynamic "lifecycle_rule" {
+    for_each = var.enable_storage_lifecycle ? [1] : []
+    content {
+      action {
+        type          = "SetStorageClass"
+        storage_class = "COLDLINE"
+      }
+      condition {
+        age = 90
+      }
     }
-    condition {
-      age = 365
+  }
+
+  dynamic "lifecycle_rule" {
+    for_each = var.enable_storage_lifecycle ? [1] : []
+    content {
+      action {
+        type          = "SetStorageClass"
+        storage_class = "ARCHIVE"
+      }
+      condition {
+        age = 365
+      }
     }
   }
 }
 
 resource "google_storage_bucket" "backups" {
-  name                        = "${var.project_id}-inventory-backups"
+  name                        = "${var.project_id}-inventory-backups-${var.environment}"
   location                    = var.region
   uniform_bucket_level_access = true
   versioning {
@@ -164,7 +176,7 @@ resource "google_storage_bucket" "backups" {
 }
 
 resource "google_storage_bucket" "images" {
-  name                        = "${var.project_id}-inventory-images"
+  name                        = "${var.project_id}-inventory-images-${var.environment}"
   location                    = var.region
   uniform_bucket_level_access = true
   versioning {
@@ -173,6 +185,7 @@ resource "google_storage_bucket" "images" {
 }
 
 resource "google_artifact_registry_repository" "inventory" {
+  count         = var.create_artifact_registry ? 1 : 0
   location      = var.region
   repository_id = "inventory-api"
   format        = "DOCKER"
@@ -204,11 +217,12 @@ resource "google_container_cluster" "inventory" {
 }
 
 resource "google_pubsub_topic" "inventory_events" {
-  name = "inventory-events"
+  name = "inventory-events-${var.environment}"
 }
 
 resource "google_monitoring_notification_channel" "email" {
-  display_name = "Inventory Alerts Email"
+  count        = var.enable_monitoring_alerts ? 1 : 0
+  display_name = "Inventory Alerts Email (${var.environment})"
   type         = "email"
   labels = {
     email_address = "alerts@inventory.local"
@@ -216,7 +230,8 @@ resource "google_monitoring_notification_channel" "email" {
 }
 
 resource "google_monitoring_alert_policy" "high_cpu" {
-  display_name = "Inventory API High CPU"
+  count        = var.enable_monitoring_alerts ? 1 : 0
+  display_name = "Inventory API High CPU (${var.environment})"
   combiner     = "OR"
   conditions {
     display_name = "CPU > 80%"
@@ -231,7 +246,7 @@ resource "google_monitoring_alert_policy" "high_cpu" {
       }
     }
   }
-  notification_channels = [google_monitoring_notification_channel.email.id]
+  notification_channels = [google_monitoring_notification_channel.email[0].id]
   alert_strategy {
     auto_close = "604800s"
   }

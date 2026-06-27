@@ -1,0 +1,39 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'docker-build'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api:${SHORT_SHA}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api:dev-latest'
+      - '-f'
+      - 'docker/Dockerfile'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'docker-push'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api'
+
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    id: 'deploy'
+    args:
+      - 'run'
+      - '--filename=infrastructure/k8s/environments/dev/'
+      - '--image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api:${SHORT_SHA}'
+      - '--location=${_REGION}'
+      - '--cluster=inventory-cluster-dev'
+
+substitutions:
+  _REGION: us-central1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_4
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api:${SHORT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/inventory-api/inventory-api:dev-latest'

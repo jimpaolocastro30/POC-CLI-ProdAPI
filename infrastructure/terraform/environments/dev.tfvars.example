@@ -1,0 +1,23 @@
+# Minimal DEV — copy to dev.tfvars and set project_id
+# Estimated cost: ~$80–150/month (us-central1)
+
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+environment = "dev"
+
+# Smallest practical PostgreSQL (shared CPU, ~0.6 GB RAM)
+db_tier                = "db-f1-micro"
+db_availability_type   = "ZONAL"
+db_disk_size_gb        = 10
+db_max_connections     = 50
+
+# Single-zone Redis (no HA)
+redis_memory_gb = 1
+redis_tier      = "BASIC"
+
+# Cost savings
+enable_pitr              = false
+backup_retained_count    = 7
+enable_monitoring_alerts = false
+enable_storage_lifecycle = false
+create_artifact_registry = true

@@ -1,18 +1,75 @@
 # Inventory Management API Platform
 
-Production-grade Inventory Management API built with **Laravel 12**, **JWT authentication**, **Spatie RBAC**, and **Google Cloud Platform** infrastructure.
+Production-grade Inventory Management API — **Laravel 12**, JWT auth, Spatie RBAC, with optional **GCP** deployment.
+
+---
+
+## Start here — local development (no GCP)
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose).
+
+```powershell
+cd d:\development\POC-CLI-ProdAPI
+.\scripts\dev.ps1
+```
+
+First run builds images and may take several minutes. The script:
+
+1. Creates `.env` from `.env.example` if missing  
+2. Starts PostgreSQL, Redis, and the API  
+3. Generates `APP_KEY` and `JWT_SECRET`  
+4. Runs migrations and seeds the database  
+5. Waits until `http://localhost:8080/up` is healthy  
+
+| Resource | URL |
+|----------|-----|
+| Health | http://localhost:8080/up |
+| API base | http://localhost:8080/api |
+| Admin login | `admin@inventory.local` / `password` |
+
+```powershell
+# Rebuild after dependency changes
+.\scripts\dev.ps1 -Rebuild
+
+# Stop everything
+.\scripts\dev.ps1 -Down
+
+# Follow logs
+docker compose logs -f app
+```
+
+**Postman:** import `postman/Inventory-Management-API.postman_collection.json`, run **Auth → Login**.
+
+### Manual compose (alternative)
+
+```powershell
+copy .env.example .env
+docker compose up -d --build
+```
+
+---
+
+## Deployment path (after local dev works)
+
+| Step | Environment | Guide |
+|------|-------------|--------|
+| 1 | **Local dev** (this repo) | `.\scripts\dev.ps1` |
+| 2 | **GCP dev** | [MINIMAL-GCP-SETUP.md](infrastructure/MINIMAL-GCP-SETUP.md) |
+| 3 | **GCP staging** | Same guide, staging section |
+| 4 | **Production** | [DEPLOYMENT-PLAN.md](infrastructure/DEPLOYMENT-PLAN.md) |
+
+Costs: [COST-ESTIMATE.md](infrastructure/COST-ESTIMATE.md)
+
+---
 
 ## Features
 
 - JWT authentication with refresh token rotation and MFA (email OTP)
-- Role-Based Access Control (Super Administrator, Inventory Manager, Warehouse Staff, Auditor, Viewer)
-- Product, category, and supplier management
-- Inventory transactions (stock in, stock out, adjustments)
+- Role-Based Access Control (5 roles, 20 permissions)
+- Product, category, supplier, and inventory transaction APIs
 - Dashboard KPIs and reports (inventory, movements, audit)
-- Full audit trail logging
-- Docker + GKE Autopilot deployment
-- Terraform-managed GCP infrastructure
-- Cloud Build CI/CD pipeline
+- Audit trail on mutations
+- Docker local dev · GKE + Terraform for cloud
 
 ## Tech Stack
 
@@ -21,43 +78,10 @@ Production-grade Inventory Management API built with **Laravel 12**, **JWT authe
 | API | Laravel 12, PHP 8.3 |
 | Auth | JWT (`php-open-source-saver/jwt-auth`) |
 | RBAC | Spatie Laravel Permission |
-| Database | PostgreSQL (Cloud SQL) |
-| Cache/Queue | Redis (Memorystore) |
-| Containers | Docker, GKE Autopilot |
-| IaC | Terraform |
-| CI/CD | Cloud Build |
-
-## Quick Start (Local)
-
-### Prerequisites
-
-- PHP 8.2+, Composer
-- Docker & Docker Compose (recommended)
-
-### Option A: Docker Compose
-
-```bash
-cp .env.example .env
-docker compose up -d --build
-docker compose exec app php artisan key:generate
-docker compose exec app php artisan jwt:secret
-docker compose exec app php artisan migrate --seed
-```
-
-API available at `http://localhost:8080`
-
-### Option B: Local PHP
-
-```bash
-cp .env.example .env
-composer install
-php artisan key:generate
-php artisan jwt:secret
-php artisan migrate --seed
-php artisan serve
-```
-
-Default admin: `admin@inventory.local` / `password`
+| Database | PostgreSQL |
+| Cache / Queue | Redis |
+| Local dev | Docker Compose |
+| Cloud | GKE Autopilot, Cloud SQL, Terraform |
 
 ## API Endpoints
 
@@ -89,9 +113,7 @@ Default admin: `admin@inventory.local` / `password`
 | GET/POST | `/api/products` | view/create item |
 | GET/PUT/DELETE | `/api/products/{id}` | view/update/delete item |
 | GET/POST | `/api/categories` | manage categories |
-| PUT | `/api/categories/{id}` | manage categories |
 | GET/POST | `/api/suppliers` | manage suppliers |
-| PUT | `/api/suppliers/{id}` | manage suppliers |
 | POST | `/api/inventory/stock-in` | receive stocks |
 | POST | `/api/inventory/stock-out` | release stocks |
 | POST | `/api/inventory/adjustment` | manage stock adjustments |
@@ -106,94 +128,47 @@ Default admin: `admin@inventory.local` / `password`
 | GET | `/api/reports/movements` |
 | GET | `/api/reports/audit` |
 
-All authenticated endpoints require `Authorization: Bearer <token>` header.
-
 ## RBAC Roles
 
-| Role | Key Permissions |
+| Role | Key permissions |
 |------|-----------------|
-| Super Administrator | Users, roles, permissions, inventory, audit logs, settings |
-| Inventory Manager | CRUD items, categories, suppliers, adjustments, reports |
-| Warehouse Staff | View inventory, receive/release stock, transactions |
-| Auditor | View inventory, transactions, audit logs, reports |
-| Viewer | Read-only access |
-
-## GCP Infrastructure
-
-Terraform provisions:
-
-- VPC with private networking
-- GKE Autopilot cluster (multi-zone, private nodes)
-- Cloud SQL PostgreSQL HA (regional, PITR, automated backups)
-- Memorystore Redis (5GB HA)
-- Cloud Storage buckets (documents, backups, images) with lifecycle rules
-- Artifact Registry
-- Pub/Sub topic
-- Secret Manager (DB credentials)
-- Cloud Monitoring alert policies
-- Service accounts (api, db, monitoring, backup)
+| Super Administrator | All permissions |
+| Inventory Manager | CRUD items, categories, suppliers, reports |
+| Warehouse Staff | Receive/release stock, transactions |
+| Auditor | View inventory, transactions, audit logs |
+| Viewer | Read-only |
 
 ## GCP Deployment
 
-See **[infrastructure/DEPLOYMENT-PLAN.md](infrastructure/DEPLOYMENT-PLAN.md)** for the full step-by-step GCP deployment plan (Terraform, GKE, CI/CD, DNS, security, DR).
+| Guide | Use when |
+|-------|----------|
+| **[MINIMAL-GCP-SETUP.md](infrastructure/MINIMAL-GCP-SETUP.md)** | GCP dev / staging |
+| **[DEPLOYMENT-PLAN.md](infrastructure/DEPLOYMENT-PLAN.md)** | Production |
+| **[COST-ESTIMATE.md](infrastructure/COST-ESTIMATE.md)** | Monthly cost breakdown |
 
+GCP dev (only after local dev works):
 
-## CI/CD Pipeline
-
-Cloud Build stages:
-
-1. Composer install
-2. PHPUnit / Pest tests
-3. Docker build
-4. Push to Artifact Registry
-5. Deploy to GKE (rolling update)
-
-## Testing
-
-```bash
-composer test
-# or
-php artisan test
+```powershell
+.\scripts\deploy-gcp-dev.ps1 -ProjectId YOUR_PROJECT_ID
 ```
 
 ## Project Structure
 
 ```
-app/
-  Http/Controllers/Api/    # API controllers
-  Http/Requests/           # Form request validation
-  Models/                  # Eloquent models
-  Services/                # Business logic (inventory, audit, MFA)
-  Enums/                   # UserStatus, TransactionType
-database/migrations/       # Schema migrations
-database/seeders/          # Roles, permissions, admin user
-docker/                    # Dockerfile, nginx, supervisord
-infrastructure/
-  terraform/               # GCP infrastructure
-  k8s/                     # Kubernetes manifests
-routes/api.php             # API route definitions
-tests/                     # Pest feature tests
+app/                    # Laravel application
+docker/                 # Dockerfile.dev (local), Dockerfile (production)
+docker-compose.yml      # Local development stack
+infrastructure/         # Terraform, K8s, deployment guides
+postman/                # API collection
+scripts/dev.ps1         # Start local dev (run this first)
+tests/                  # Pest tests
 ```
 
-## Security
+## Testing
 
-- JWT access tokens with configurable TTL
-- Refresh token rotation via JWT blacklist
-- MFA via email OTP
-- Spatie permission middleware on all routes
-- Audit logging on all mutations
-- Private GKE / Cloud SQL / Redis networking (Terraform)
-- Secret Manager for credentials
-- Cloud Armor WAF (configure at load balancer layer)
-
-## Performance Targets
-
-| Metric | Target |
-|--------|--------|
-| API response | < 200ms |
-| Login | < 300ms |
-| Concurrent users | 5,000+ |
-| Uptime | 99.95% |
+```powershell
+docker compose exec app php artisan test
+```
 
 ## License
 
